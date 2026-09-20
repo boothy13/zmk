@@ -63,7 +63,7 @@ static struct hids_report led_indicators = {
 #endif // IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
 
 static struct hids_report consumer_input = {
-    .id = ZMK_HID_REPORT_ID_CONSUMER,
+    .id = 0x00,
     .type = HIDS_INPUT,
 };
 
