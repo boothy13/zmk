@@ -102,48 +102,30 @@
 #define HID_USAGE16_SINGLE(a) HID_USAGE16((a & 0xFF), ((a >> 8) & 0xFF))
 
 static const uint8_t zmk_hid_report_desc[] = {
-    /* Gamepad-like HID collection: matches controller-style devices better than a pure consumer remote */
-    HID_USAGE_PAGE(HID_USAGE_GD),
-    HID_USAGE(HID_USAGE_GD_GAMEPAD),
-    HID_COLLECTION(HID_COLLECTION_APPLICATION),
-    HID_REPORT_ID(0x01),
-
-    /* 8 buttons */
-    HID_USAGE_PAGE(HID_USAGE_BUTTON),
-    HID_USAGE_MIN8(0x01),
-    HID_USAGE_MAX8(0x08),
-    HID_LOGICAL_MIN8(0x00),
-    HID_LOGICAL_MAX8(0x01),
-    HID_REPORT_SIZE(0x01),
-    HID_REPORT_COUNT(0x08),
-    HID_INPUT(ZMK_HID_MAIN_VAL_DATA | ZMK_HID_MAIN_VAL_VAR | ZMK_HID_MAIN_VAL_ABS),
-
-    /* X/Y axes */
-    HID_USAGE_PAGE(HID_USAGE_GD),
-    HID_USAGE(HID_USAGE_GD_X),
-    HID_USAGE(HID_USAGE_GD_Y),
-    HID_LOGICAL_MIN8(0x00),
-    HID_LOGICAL_MAX8(0xFF),
-    HID_REPORT_SIZE(0x08),
-    HID_REPORT_COUNT(0x02),
-    HID_INPUT(ZMK_HID_MAIN_VAL_DATA | ZMK_HID_MAIN_VAL_VAR | ZMK_HID_MAIN_VAL_ABS),
-
-    HID_END_COLLECTION,
-
-    /* Optional consumer/media block for Prev/PlayPause/Next */
+    /* Chromecast-style Consumer Control remote profile. */
     HID_USAGE_PAGE(HID_USAGE_CONSUMER),
     HID_USAGE(HID_USAGE_CONSUMER_CONSUMER_CONTROL),
     HID_COLLECTION(HID_COLLECTION_APPLICATION),
-    HID_REPORT_ID(0x02),
+    HID_REPORT_ID(ZMK_HID_REPORT_ID_CONSUMER),
 
+#if IS_ENABLED(CONFIG_ZMK_HID_CONSUMER_REPORT_USAGES_BASIC)
     HID_LOGICAL_MIN8(0x00),
     HID_LOGICAL_MAX16(0xFF, 0x00),
     HID_USAGE_MIN8(0x00),
     HID_USAGE_MAX8(0xFF),
     HID_REPORT_SIZE(0x08),
-    HID_REPORT_COUNT(0x01),
-    HID_INPUT(ZMK_HID_MAIN_VAL_DATA | ZMK_HID_MAIN_VAL_ARRAY | ZMK_HID_MAIN_VAL_ABS),
+#elif IS_ENABLED(CONFIG_ZMK_HID_CONSUMER_REPORT_USAGES_FULL)
+    HID_LOGICAL_MIN8(0x00),
+    HID_LOGICAL_MAX16(0xFF, 0x0F),
+    HID_USAGE_MIN8(0x00),
+    HID_USAGE_MAX16(0xFF, 0x0F),
+    HID_REPORT_SIZE(0x10),
+#else
+#error "A proper consumer HID report usage range must be selected"
+#endif
 
+    HID_REPORT_COUNT(CONFIG_ZMK_HID_CONSUMER_REPORT_SIZE),
+    HID_INPUT(ZMK_HID_MAIN_VAL_DATA | ZMK_HID_MAIN_VAL_ARRAY | ZMK_HID_MAIN_VAL_ABS),
     HID_END_COLLECTION,
 };
 
@@ -179,12 +161,6 @@ struct zmk_hid_keyboard_report_body {
 struct zmk_hid_keyboard_report {
     uint8_t report_id;
     struct zmk_hid_keyboard_report_body body;
-} __packed;
-
-struct zmk_hid_gamepad_report_body {
-    uint8_t buttons;
-    uint8_t x;
-    uint8_t y;
 } __packed;
 
 struct zmk_hid_led_report_body {
