@@ -108,14 +108,14 @@ static const uint8_t zmk_hid_report_desc[] = {
     HID_COLLECTION(HID_COLLECTION_APPLICATION),
     HID_REPORT_ID(0x01),
 
-    /* 12 buttons */
+    /* 8 buttons */
     HID_USAGE_PAGE(HID_USAGE_BUTTON),
     HID_USAGE_MIN8(0x01),
-    HID_USAGE_MAX8(0x0C),
+    HID_USAGE_MAX8(0x08),
     HID_LOGICAL_MIN8(0x00),
     HID_LOGICAL_MAX8(0x01),
     HID_REPORT_SIZE(0x01),
-    HID_REPORT_COUNT(0x0C),
+    HID_REPORT_COUNT(0x08),
     HID_INPUT(ZMK_HID_MAIN_VAL_DATA | ZMK_HID_MAIN_VAL_VAR | ZMK_HID_MAIN_VAL_ABS),
 
     /* X/Y axes */
@@ -179,6 +179,12 @@ struct zmk_hid_keyboard_report_body {
 struct zmk_hid_keyboard_report {
     uint8_t report_id;
     struct zmk_hid_keyboard_report_body body;
+} __packed;
+
+struct zmk_hid_gamepad_report_body {
+    uint8_t buttons;
+    uint8_t x;
+    uint8_t y;
 } __packed;
 
 struct zmk_hid_led_report_body {

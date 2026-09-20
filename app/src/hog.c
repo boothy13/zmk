@@ -114,9 +114,9 @@ static ssize_t read_hids_report_map(struct bt_conn *conn, const struct bt_gatt_a
 
 static ssize_t read_hids_input_report(struct bt_conn *conn, const struct bt_gatt_attr *attr,
                                       void *buf, uint16_t len, uint16_t offset) {
-    struct zmk_hid_keyboard_report_body *report_body = &zmk_hid_get_keyboard_report()->body;
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, report_body,
-                             sizeof(struct zmk_hid_keyboard_report_body));
+    static struct zmk_hid_gamepad_report_body report_body;
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &report_body,
+                             sizeof(report_body));
 }
 
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
