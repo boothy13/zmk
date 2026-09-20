@@ -252,8 +252,8 @@ static ssize_t write_ctrl_point(struct bt_conn *conn, const struct bt_gatt_attr 
 }
 
 /* HID Service Declaration */
-static struct bt_gatt_attr hog_svc_attrs[] = {
-    BT_GATT_PRIMARY_SERVICE(BT_UUID_HIDS),
+BT_GATT_SERVICE_DEFINE(
+    hog_svc, BT_GATT_PRIMARY_SERVICE(BT_UUID_HIDS),
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_PROTOCOL_MODE,
                            BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE_WITHOUT_RESP,
                            BT_GATT_PERM_READ | BT_GATT_PERM_WRITE, read_proto_mode,
@@ -297,13 +297,7 @@ static struct bt_gatt_attr hog_svc_attrs[] = {
 #endif // IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
 
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_CTRL_POINT, BT_GATT_CHRC_WRITE_WITHOUT_RESP,
-                           BT_GATT_PERM_WRITE, NULL, write_ctrl_point, &ctrl_point),
-};
-
-static struct bt_gatt_service hog_svc = {
-    .attrs = hog_svc_attrs,
-    .attr_count = ARRAY_SIZE(hog_svc_attrs),
-};
+                           BT_GATT_PERM_WRITE, NULL, write_ctrl_point, &ctrl_point));
 
 K_THREAD_STACK_DEFINE(hog_q_stack, CONFIG_ZMK_BLE_THREAD_STACK_SIZE);
 
@@ -469,13 +463,6 @@ int zmk_hog_send_mouse_report(struct zmk_hid_mouse_report_body *report) {
 
 static int zmk_hog_init(void) {
     static const struct k_work_queue_config queue_config = {.name = "HID Over GATT Send Work"};
-    int err = bt_gatt_service_register(&hog_svc);
-    if (err) {
-        LOG_ERR("Failed to register HIDS service: %d", err);
-        return err;
-    }
-
-    LOG_INF("Registered HIDS service");
     k_work_queue_start(&hog_work_q, hog_q_stack, K_THREAD_STACK_SIZEOF(hog_q_stack),
                        CONFIG_ZMK_BLE_THREAD_PRIORITY, &queue_config);
 
