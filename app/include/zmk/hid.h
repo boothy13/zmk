@@ -103,13 +103,13 @@
 
 static const uint8_t zmk_hid_report_desc[] = {
     /* Gamepad-like HID collection: matches controller-style devices better than a pure consumer remote */
-    HID_USAGE_PAGE(HID_USAGE_PAGE_DESKTOP),
-    HID_USAGE(HID_USAGE_GENDESK_GAMEPAD),
+    HID_USAGE_PAGE(HID_USAGE_GD),
+    HID_USAGE(HID_USAGE_GD_GAMEPAD),
     HID_COLLECTION(HID_COLLECTION_APPLICATION),
     HID_REPORT_ID(0x01),
 
     /* 12 buttons */
-    HID_USAGE_PAGE(HID_USAGE_PAGE_BUTTON),
+    HID_USAGE_PAGE(HID_USAGE_BUTTON),
     HID_USAGE_MIN8(0x01),
     HID_USAGE_MAX8(0x0C),
     HID_LOGICAL_MIN8(0x00),
@@ -119,9 +119,9 @@ static const uint8_t zmk_hid_report_desc[] = {
     HID_INPUT(ZMK_HID_MAIN_VAL_DATA | ZMK_HID_MAIN_VAL_VAR | ZMK_HID_MAIN_VAL_ABS),
 
     /* X/Y axes */
-    HID_USAGE_PAGE(HID_USAGE_PAGE_DESKTOP),
-    HID_USAGE(HID_USAGE_GENDESK_X),
-    HID_USAGE(HID_USAGE_GENDESK_Y),
+    HID_USAGE_PAGE(HID_USAGE_GD),
+    HID_USAGE(HID_USAGE_GD_X),
+    HID_USAGE(HID_USAGE_GD_Y),
     HID_LOGICAL_MIN8(0x00),
     HID_LOGICAL_MAX8(0xFF),
     HID_REPORT_SIZE(0x08),
