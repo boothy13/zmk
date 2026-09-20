@@ -299,6 +299,9 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_CTRL_POINT, BT_GATT_CHRC_WRITE_WITHOUT_RESP,
                            BT_GATT_PERM_WRITE, NULL, write_ctrl_point, &ctrl_point));
 
+/* Keep the iterable HIDS service in images that enable linker garbage collection. */
+static const void *const hog_svc_keep __attribute__((used)) = &hog_svc;
+
 K_THREAD_STACK_DEFINE(hog_q_stack, CONFIG_ZMK_BLE_THREAD_STACK_SIZE);
 
 struct k_work_q hog_work_q;
