@@ -67,11 +67,6 @@ static struct hids_report led_indicators = {
 
 #endif // IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
 
-static struct hids_report consumer_input = {
-    .id = ZMK_HID_REPORT_ID_CONSUMER,
-    .type = HIDS_INPUT,
-};
-
 #if IS_ENABLED(CONFIG_ZMK_POINTING)
 
 static struct hids_report mouse_input = {
@@ -92,12 +87,35 @@ static struct hids_report mouse_feature = {
 
 static bool host_requests_notification = false;
 static uint8_t ctrl_point;
-// static uint8_t proto_mode;
+static uint8_t proto_mode = 0x01;
 
 static ssize_t read_hids_info(struct bt_conn *conn, const struct bt_gatt_attr *attr, void *buf,
                               uint16_t len, uint16_t offset) {
     return bt_gatt_attr_read(conn, attr, buf, len, offset, attr->user_data,
                              sizeof(struct hids_info));
+}
+
+static ssize_t read_proto_mode(struct bt_conn *conn, const struct bt_gatt_attr *attr, void *buf,
+                               uint16_t len, uint16_t offset) {
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, attr->user_data, sizeof(proto_mode));
+}
+
+static ssize_t write_proto_mode(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                                const void *buf, uint16_t len, uint16_t offset, uint8_t flags) {
+    if (offset != 0) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
+    }
+    if (len != sizeof(proto_mode)) {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    uint8_t mode = *(const uint8_t *)buf;
+    if (mode > 0x01) {
+        return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
+    }
+
+    proto_mode = mode;
+    return len;
 }
 
 static ssize_t read_hids_report_ref(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -146,14 +164,6 @@ static ssize_t write_hids_leds_report(struct bt_conn *conn, const struct bt_gatt
 }
 
 #endif // IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
-
-static ssize_t read_hids_consumer_input_report(struct bt_conn *conn,
-                                               const struct bt_gatt_attr *attr, void *buf,
-                                               uint16_t len, uint16_t offset) {
-    struct zmk_hid_consumer_report_body *report_body = &zmk_hid_get_consumer_report()->body;
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, report_body,
-                             sizeof(struct zmk_hid_consumer_report_body));
-}
 
 #if IS_ENABLED(CONFIG_ZMK_POINTING)
 
@@ -251,8 +261,10 @@ static ssize_t write_ctrl_point(struct bt_conn *conn, const struct bt_gatt_attr 
 /* HID Service Declaration */
 BT_GATT_SERVICE_DEFINE(
     hog_svc, BT_GATT_PRIMARY_SERVICE(BT_UUID_HIDS),
-    //    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_PROTOCOL_MODE, BT_GATT_CHRC_WRITE_WITHOUT_RESP,
-    //                           BT_GATT_PERM_WRITE, NULL, write_proto_mode, &proto_mode),
+    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_PROTOCOL_MODE,
+                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE, read_proto_mode,
+                           write_proto_mode, &proto_mode),
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_INFO, BT_GATT_CHRC_READ, BT_GATT_PERM_READ, read_hids_info,
                            NULL, &info),
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT_MAP, BT_GATT_CHRC_READ, BT_GATT_PERM_READ_ENCRYPT,
@@ -263,12 +275,6 @@ BT_GATT_SERVICE_DEFINE(
     BT_GATT_CCC(input_ccc_changed, BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT),
     BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
                        NULL, &input),
-
-    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
-                           BT_GATT_PERM_READ_ENCRYPT, read_hids_consumer_input_report, NULL, NULL),
-    BT_GATT_CCC(input_ccc_changed, BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT),
-    BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
-                       NULL, &consumer_input),
 
 #if IS_ENABLED(CONFIG_ZMK_POINTING)
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
@@ -317,7 +323,7 @@ void send_keyboard_report_callback(struct k_work *work) {
         }
 
         struct bt_gatt_notify_params notify_params = {
-            .attr = &hog_svc.attrs[5],
+            .attr = &hog_svc.attrs[8],
             .data = &report,
             .len = sizeof(report),
         };
@@ -356,56 +362,9 @@ int zmk_hog_send_keyboard_report(struct zmk_hid_keyboard_report_body *report) {
     return 0;
 };
 
-K_MSGQ_DEFINE(zmk_hog_consumer_msgq, sizeof(struct zmk_hid_consumer_report_body),
-              CONFIG_ZMK_BLE_CONSUMER_REPORT_QUEUE_SIZE, 4);
-
-void send_consumer_report_callback(struct k_work *work) {
-    struct zmk_hid_consumer_report_body report;
-
-    while (k_msgq_get(&zmk_hog_consumer_msgq, &report, K_NO_WAIT) == 0) {
-        struct bt_conn *conn = zmk_ble_active_profile_conn();
-        if (conn == NULL) {
-            return;
-        }
-
-        struct bt_gatt_notify_params notify_params = {
-            .attr = &hog_svc.attrs[9],
-            .data = &report,
-            .len = sizeof(report),
-        };
-
-        int err = bt_gatt_notify_cb(conn, &notify_params);
-        if (err == -EPERM) {
-            bt_conn_set_security(conn, BT_SECURITY_L2);
-        } else if (err) {
-            LOG_DBG("Error notifying %d", err);
-        }
-
-        bt_conn_unref(conn);
-    }
-};
-
-K_WORK_DEFINE(hog_consumer_work, send_consumer_report_callback);
-
 int zmk_hog_send_consumer_report(struct zmk_hid_consumer_report_body *report) {
-    int err = k_msgq_put(&zmk_hog_consumer_msgq, report, K_MSEC(100));
-    if (err) {
-        switch (err) {
-        case -EAGAIN: {
-            LOG_WRN("Consumer message queue full, popping first message and queueing again");
-            struct zmk_hid_consumer_report_body discarded_report;
-            k_msgq_get(&zmk_hog_consumer_msgq, &discarded_report, K_NO_WAIT);
-            return zmk_hog_send_consumer_report(report);
-        }
-        default:
-            LOG_WRN("Failed to queue consumer report to send (%d)", err);
-            return err;
-        }
-    }
-
-    k_work_submit_to_queue(&hog_work_q, &hog_consumer_work);
-
-    return 0;
+    ARG_UNUSED(report);
+    return -ENOTSUP;
 };
 
 #if IS_ENABLED(CONFIG_ZMK_POINTING)
