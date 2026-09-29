@@ -42,7 +42,7 @@ struct hids_report {
 } __packed;
 
 static struct hids_info info = {
-    .version = 0x0111,
+    .version = 0x0000,
     .code = 0x00,
     .flags = HIDS_NORMALLY_CONNECTABLE | HIDS_REMOTE_WAKE,
 };
@@ -51,6 +51,11 @@ enum {
     HIDS_INPUT = 0x01,
     HIDS_OUTPUT = 0x02,
     HIDS_FEATURE = 0x03,
+};
+
+static struct hids_report input = {
+    .id = ZMK_HID_REPORT_ID_KEYBOARD,
+    .type = HIDS_INPUT,
 };
 
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
@@ -63,7 +68,7 @@ static struct hids_report led_indicators = {
 #endif // IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
 
 static struct hids_report consumer_input = {
-    .id = 0x00,
+    .id = ZMK_HID_REPORT_ID_CONSUMER,
     .type = HIDS_INPUT,
 };
 
@@ -87,27 +92,12 @@ static struct hids_report mouse_feature = {
 
 static bool host_requests_notification = false;
 static uint8_t ctrl_point;
-static uint8_t proto_mode = 0x01;
+// static uint8_t proto_mode;
 
 static ssize_t read_hids_info(struct bt_conn *conn, const struct bt_gatt_attr *attr, void *buf,
                               uint16_t len, uint16_t offset) {
     return bt_gatt_attr_read(conn, attr, buf, len, offset, attr->user_data,
                              sizeof(struct hids_info));
-}
-
-static ssize_t read_proto_mode(struct bt_conn *conn, const struct bt_gatt_attr *attr, void *buf,
-                                uint16_t len, uint16_t offset) {
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, attr->user_data, sizeof(proto_mode));
-}
-
-static ssize_t write_proto_mode(struct bt_conn *conn, const struct bt_gatt_attr *attr,
-                                const void *buf, uint16_t len, uint16_t offset, uint8_t flags) {
-    if (offset != 0 || len != sizeof(proto_mode) || *(const uint8_t *)buf > 0x01) {
-        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
-    }
-
-    proto_mode = *(const uint8_t *)buf;
-    return len;
 }
 
 static ssize_t read_hids_report_ref(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -120,6 +110,13 @@ static ssize_t read_hids_report_map(struct bt_conn *conn, const struct bt_gatt_a
                                     void *buf, uint16_t len, uint16_t offset) {
     return bt_gatt_attr_read(conn, attr, buf, len, offset, zmk_hid_report_desc,
                              sizeof(zmk_hid_report_desc));
+}
+
+static ssize_t read_hids_input_report(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                                      void *buf, uint16_t len, uint16_t offset) {
+    struct zmk_hid_keyboard_report_body *report_body = &zmk_hid_get_keyboard_report()->body;
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, report_body,
+                             sizeof(struct zmk_hid_keyboard_report_body));
 }
 
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
@@ -254,14 +251,18 @@ static ssize_t write_ctrl_point(struct bt_conn *conn, const struct bt_gatt_attr 
 /* HID Service Declaration */
 BT_GATT_SERVICE_DEFINE(
     hog_svc, BT_GATT_PRIMARY_SERVICE(BT_UUID_HIDS),
-    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_PROTOCOL_MODE,
-                           BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE_WITHOUT_RESP,
-                           BT_GATT_PERM_READ | BT_GATT_PERM_WRITE, read_proto_mode,
-                           write_proto_mode, &proto_mode),
+    //    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_PROTOCOL_MODE, BT_GATT_CHRC_WRITE_WITHOUT_RESP,
+    //                           BT_GATT_PERM_WRITE, NULL, write_proto_mode, &proto_mode),
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_INFO, BT_GATT_CHRC_READ, BT_GATT_PERM_READ, read_hids_info,
                            NULL, &info),
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT_MAP, BT_GATT_CHRC_READ, BT_GATT_PERM_READ_ENCRYPT,
                            read_hids_report_map, NULL, NULL),
+
+    BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
+                           BT_GATT_PERM_READ_ENCRYPT, read_hids_input_report, NULL, NULL),
+    BT_GATT_CCC(input_ccc_changed, BT_GATT_PERM_READ_ENCRYPT | BT_GATT_PERM_WRITE_ENCRYPT),
+    BT_GATT_DESCRIPTOR(BT_UUID_HIDS_REPORT_REF, BT_GATT_PERM_READ_ENCRYPT, read_hids_report_ref,
+                       NULL, &input),
 
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
                            BT_GATT_PERM_READ_ENCRYPT, read_hids_consumer_input_report, NULL, NULL),
@@ -316,7 +317,7 @@ void send_keyboard_report_callback(struct k_work *work) {
         }
 
         struct bt_gatt_notify_params notify_params = {
-            .attr = &hog_svc.attrs[8],
+            .attr = &hog_svc.attrs[5],
             .data = &report,
             .len = sizeof(report),
         };
@@ -368,7 +369,7 @@ void send_consumer_report_callback(struct k_work *work) {
         }
 
         struct bt_gatt_notify_params notify_params = {
-            .attr = &hog_svc.attrs[8],
+            .attr = &hog_svc.attrs[9],
             .data = &report,
             .len = sizeof(report),
         };
