@@ -58,6 +58,8 @@ static struct hids_report input = {
     .type = HIDS_INPUT,
 };
 
+static const uint16_t battery_level_ref = BT_UUID_BAS_BATTERY_LEVEL_VAL;
+
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
 
 static struct hids_report led_indicators = {
@@ -128,6 +130,13 @@ static ssize_t read_hids_report_map(struct bt_conn *conn, const struct bt_gatt_a
                                     void *buf, uint16_t len, uint16_t offset) {
     return bt_gatt_attr_read(conn, attr, buf, len, offset, zmk_hid_report_desc,
                              sizeof(zmk_hid_report_desc));
+}
+
+static ssize_t read_hids_external_report_ref(struct bt_conn *conn,
+                                             const struct bt_gatt_attr *attr, void *buf,
+                                             uint16_t len, uint16_t offset) {
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, attr->user_data,
+                             sizeof(battery_level_ref));
 }
 
 static ssize_t read_hids_input_report(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -269,6 +278,8 @@ BT_GATT_SERVICE_DEFINE(
                            NULL, &info),
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT_MAP, BT_GATT_CHRC_READ, BT_GATT_PERM_READ_ENCRYPT,
                            read_hids_report_map, NULL, NULL),
+    BT_GATT_DESCRIPTOR(BT_UUID_HIDS_EXT_REPORT, BT_GATT_PERM_READ_ENCRYPT,
+                       read_hids_external_report_ref, NULL, &battery_level_ref),
 
     BT_GATT_CHARACTERISTIC(BT_UUID_HIDS_REPORT, BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
                            BT_GATT_PERM_READ_ENCRYPT, read_hids_input_report, NULL, NULL),
@@ -323,7 +334,7 @@ void send_keyboard_report_callback(struct k_work *work) {
         }
 
         struct bt_gatt_notify_params notify_params = {
-            .attr = &hog_svc.attrs[8],
+            .attr = &hog_svc.attrs[9],
             .data = &report,
             .len = sizeof(report),
         };
@@ -381,7 +392,7 @@ void send_mouse_report_callback(struct k_work *work) {
         }
 
         struct bt_gatt_notify_params notify_params = {
-            .attr = &hog_svc.attrs[13],
+            .attr = &hog_svc.attrs[14],
             .data = &report,
             .len = sizeof(report),
         };
